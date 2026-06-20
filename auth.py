@@ -1,11 +1,11 @@
-import psycopg2
+# import psycopg2
 import streamlit as st
 
 # YAHAN APNA SUPABASE URI PASTE KAREIN (Password ke sath)
-DB_URL = "postgresql://postgres.xxxxxxxxxx:w6kZMpAgoI9Wc3JD@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
+# DB_URL = "postgresql://postgres.xxxxxxxxxx:w6kZMpAgoI9Wc3JD@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
 
-def get_conn():
-    return psycopg2.connect(DB_URL)
+# def get_conn():
+    # return psycopg2.connect(DB_URL)
 
 def init_auth_db():
     conn = get_conn()
