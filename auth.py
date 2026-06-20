@@ -1,54 +1,56 @@
-# import psycopg2
+import sqlite3
 import streamlit as st
 
-# YAHAN APNA SUPABASE URI PASTE KAREIN (Password ke sath)
-# DB_URL = "postgresql://postgres.xxxxxxxxxx:w6kZMpAgoI9Wc3JD@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
-
-# def get_conn():
-    # return psycopg2.connect(DB_URL)
+DB_FILE = 'kriya_database.db'
 
 def init_auth_db():
-    conn = get_conn()
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
+    # Users table banayenge jisme login details save hongi
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE,
             password TEXT,
             role TEXT
         )
     ''')
+    
+    # Agar database mein koi user nahi hai, toh ek default Admin bana denge
     c.execute('SELECT COUNT(*) FROM users')
     if c.fetchone()[0] == 0:
-        c.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", ('admin', 'admin123', 'Admin'))
+        c.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', ('admin', 'admin123', 'Admin'))
+    
     conn.commit()
     conn.close()
 
 def authenticate(username, password):
-    conn = get_conn()
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('SELECT role FROM users WHERE username=%s AND password=%s', (username, password))
+    c.execute('SELECT role FROM users WHERE username=? AND password=?', (username, password))
     result = c.fetchone()
     conn.close()
     if result:
-        return True, result[0]
+        return True, result[0] # Returns (True, Role)
     return False, None
 
 def register_user(username, password, role):
     try:
-        conn = get_conn()
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute('INSERT INTO users (username, password, role) VALUES (%s, %s, %s)', (username, password, role))
+        # Naya user insert karenge
+        c.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', (username, password, role))
         conn.commit()
         conn.close()
         return True, f"User '{username}' successfully registered!"
-    except psycopg2.IntegrityError:
+    except sqlite3.IntegrityError:
+        # Agar username pehle se exist karta hai
         return False, f"Username '{username}' already exists. Kripya doosra naam chunein."
 
 def reset_password(username, new_password):
-    conn = get_conn()
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('UPDATE users SET password=%s WHERE username=%s', (new_password, username))
+    c.execute('UPDATE users SET password=? WHERE username=?', (new_password, username))
     rowcount = c.rowcount
     conn.commit()
     conn.close()
@@ -57,7 +59,7 @@ def reset_password(username, new_password):
     return False, f"User '{username}' nahi mila!"
 
 def get_all_usernames():
-    conn = get_conn()
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT username FROM users WHERE role='Customer'")
     users = [row[0] for row in c.fetchall()]
