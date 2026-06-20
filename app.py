@@ -9,7 +9,6 @@ st.set_page_config(page_title="Kriya & Payment Manager", layout="wide")
 # ==========================================
 # 0. Smart Session Persistence (Refresh Fix)
 # ==========================================
-# Agar page refresh hua hai, toh URL se login details wapas uthao
 if 'logged_in' not in st.session_state:
     if "username" in st.query_params and "role" in st.query_params:
         st.session_state['logged_in'] = True
@@ -67,7 +66,8 @@ def get_last_details(customer_name):
         return result[0], result[1], result[2] 
     return 0, 10.0, 0.0 
 
-def add_entry(customer_name, entry_date, previous_unit, new_unit, kriya_rate, fixed_rent, paid_amount):
+# NAYA LOGIC: New entry aane par bhi changelog register hoga
+def add_entry(customer_name, entry_date, previous_unit, new_unit, kriya_rate, fixed_rent, paid_amount, current_user):
     minus_unit = new_unit - previous_unit
     unit_amount = minus_unit * kriya_rate
     total_amount = fixed_rent + unit_amount 
@@ -82,10 +82,23 @@ def add_entry(customer_name, entry_date, previous_unit, new_unit, kriya_rate, fi
     
     conn = auth.get_conn()
     c = conn.cursor()
+    # RETURNING id ka use kiya hai taaki changelog ko sahi ID mil sake
     c.execute('''
         INSERT INTO entries (customer_name, entry_date, previous_unit, new_unit, minus_unit, kriya_rate, fixed_rent, total_amount, paid_amount, balance_amount, payment_status)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
     ''', (customer_name, entry_date, previous_unit, new_unit, minus_unit, kriya_rate, fixed_rent, total_amount, paid_amount, balance_amount, payment_status))
+    
+    entry_id = c.fetchone()[0]
+    
+    # Changelog mein New Entry create hone ka log save karna
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    changes_str = f"🟢 NEW ENTRY CREATED | Fixed Kriya: ₹{fixed_rent} | Units: {minus_unit} | Total: ₹{total_amount} | Paid: ₹{paid_amount}"
+    
+    c.execute('''
+        INSERT INTO changelog (entry_id, customer_name, edited_by, edit_time, changes_made)
+        VALUES (%s, %s, %s, %s, %s)
+    ''', (entry_id, customer_name, current_user, current_time, changes_str))
+    
     conn.commit()
     conn.close()
     return True, "Data successfully saved!"
@@ -213,7 +226,6 @@ if not st.session_state['logged_in']:
                     st.session_state['role'] = role
                     st.session_state['username'] = username
                     
-                    # NAYI LINE: URL parameters set karo refresh se bachne ke liye
                     st.query_params["username"] = username
                     st.query_params["role"] = role
                     st.rerun()
@@ -240,8 +252,6 @@ else:
         st.session_state['logged_in'] = False
         st.session_state['role'] = None
         st.session_state['username'] = None
-        
-        # NAYI LINE: Logout hone par URL parameters saaf karo
         st.query_params.clear()
         st.rerun()
 
@@ -301,7 +311,8 @@ else:
                     st.warning(f"**Baki (Balance):** ₹ {balance_calc}")
                 
                 if st.button("Save Entry", type="primary"):
-                    success, msg = add_entry(customer_name, str(entry_date), editable_prev_unit, new_unit, kriya_rate, fixed_rent, paid_amount)
+                    # Current user ko pass kiya taaki changelog track ho sake
+                    success, msg = add_entry(customer_name, str(entry_date), editable_prev_unit, new_unit, kriya_rate, fixed_rent, paid_amount, current_user)
                     if success: st.success(msg); st.rerun()
                     else: st.error(msg)
 
@@ -356,7 +367,7 @@ else:
                     select_user = st.selectbox("Select Customer to Reset Password", existing_users)
                     reset_pass = st.text_input("New Password", type="password")
                     if st.button("Reset Password"):
-                        success, msg = auth.register_user(select_user, reset_pass) # Fixed reset call
+                        success, msg = auth.reset_password(select_user, reset_pass)
                         if success: st.success(msg)
                         else: st.error(msg)
 
