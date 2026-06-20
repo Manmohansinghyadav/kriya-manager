@@ -19,7 +19,7 @@ def init_auth_db():
     # Agar database mein koi user nahi hai, toh ek default Admin bana denge
     c.execute('SELECT COUNT(*) FROM users')
     if c.fetchone()[0] == 0:
-        c.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', ('admin', 'admin@1234321', 'Admin'))
+        c.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', ('admin', 'admin1234', 'Admin'))
     
     conn.commit()
     conn.close()
