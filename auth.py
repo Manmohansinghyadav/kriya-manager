@@ -3,7 +3,10 @@ import streamlit as st
 
 DB_FILE = 'kriya_database.db'
 
+DB_URL = "postgresql://postgres:w6kZMpAgoI9Wc3JD]@db.uipauhzjdqnfposklxqb.supabase.co:5432/postgres"
+
 def init_auth_db():
+    
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     # Users table banayenge jisme login details save hongi
